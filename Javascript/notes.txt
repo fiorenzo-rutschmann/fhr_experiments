@@ -1,0 +1,1 @@
+//using javascript errors to make ascii art on the error page priceless 

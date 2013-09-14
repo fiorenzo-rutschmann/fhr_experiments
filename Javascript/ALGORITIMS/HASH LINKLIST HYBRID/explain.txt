@@ -1,0 +1,14 @@
+say you have a grid of objects and thoughs objects knew about their surrounding objects.
+
+- linking objects via pointers in the grid would be a way of connecting the objects.
+
+Taking that into account if you wanted to find an object you would have to travese the grid which is slow.
+
+which a hashtable indexing objects which point to their neighbours, it will be fast at finding nodes as well as traversing.
+
+heuristics
+
+make this in c btw , with random data.
+ 
+
+
