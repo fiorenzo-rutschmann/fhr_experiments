@@ -1,0 +1,39 @@
+
+looking soley at the mocrosoft wave format as i believe its the one generally refered to.
+https://ccrma.stanford.edu/courses/422/projects/WaveFormat/
+
+
+HEADER
+//basic riff header
+
+bytes | Description | Example
+0 - 4 | basic magic number :D | "RIFF"
+4 - 4 | Size of the file minus 8 bytes for these 2 field's | 0x00FF
+8 - 4 | a magic number :D :D  | "WAVE"
+
+
+//now into the WAVE header
+
+bytes 	| Description | Example
+
+12 - 4 	| more magic  | "fmt " // thats a space got to be 4 bytes
+16 - 4  | size of sub-chunk | apparently 16, bc i only want PCM // will have to look at other formats
+20 - 2  | AudioFormat 1=PCM other = compression | 0x01 //remember 2 bytes
+22 - 2  | channels				| 0x01 //remember 2 bytes
+24 - 4  | sample rate	| 8000, 44100, etc. //will have to research if custom numbers allowed, could be used to slow down the audio ???
+28 - 4	| byte-rate	SampleRate * NumChannels * BitsPerSample/8    | interseting, if i made a wave player i would do this calculation not read this feild
+32 - 2  | NumChannels * BitsPerSample/8 | //look into multiple channels
+34 - 2  | bits per sample | 0x08 //8 bit all the way?
+
+//data subchunk
+
+36 - 4 | sub-chunk id more magic please | "data"
+40 - 4 | subchunck size | 0x00FF // so 2gb of data max?, or is it unsigned ?
+44 - * | yay sound data | wob wob wob
+
+
+
+//sample opening 72 bytes
+52 49 46 46 24 08 00 00 57 41 56 45 66 6d 74 20 10 00 00 00 01 00 02 00 
+22 56 00 00 88 58 01 00 04 00 10 00 64 61 74 61 00 08 00 00 00 00 00 00 
+24 17 1e f3 3c 13 3c 14 16 f9 18 f9 34 e7 23 a6 3c f2 24 f2 11 ce 1a 0d
