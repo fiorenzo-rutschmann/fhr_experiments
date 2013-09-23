@@ -1,15 +1,49 @@
+var FastBase64 = {
 
-function Apple (type) {
-    this.type = type;
-    this.color = "red";
-    this.getInfo = function() {
-        return this.color + ' ' + this.type + ' apple';
-    };
+    chars: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=",
+    encLookup: [],
+
+    Init: function() {
+        for (var i=0; i<4096; i++) {
+            this.encLookup[i] = this.chars[i >> 6] + this.chars[i & 0x3F];
+        }
+    },
+
+    Encode: function(src) {
+        var len = src.length;
+        var dst = '';
+        var i = 0;
+        while (len > 2) {
+            n = (src[i] << 16) | (src[i+1]<<8) | src[i+2];
+            dst+= this.encLookup[n >> 12] + this.encLookup[n & 0xFFF];
+            len-= 3;
+            i+= 3;
+        }
+        if (len > 0) {
+            var n1= (src[i] & 0xFC) >> 2;
+            var n2= (src[i] & 0x03) << 4;
+            if (len > 1) n2 |= (src[++i] & 0xF0) >> 4;
+            dst+= this.chars[n1];
+            dst+= this.chars[n2];
+            if (len == 2) {
+                var n3= (src[i++] & 0x0F) << 2;
+                n3 |= (src[i] & 0xC0) >> 6;
+                dst+= this.chars[n3];
+            }
+            if (len == 1) dst+= '=';
+            dst+= '=';
+        }
+        return dst;
+    } // end Encode
+
 }
 
-function WaveBundler(ch1_data, sample_rate, sample_size )
+FastBase64.Init();
+
+
+function WaveBundler()
 {
-	//check for errors
+	/*//check for errors
 	if (ch1_data instanceof Array)
 	{
 		this.ch1_data = ch1_data;
@@ -35,115 +69,102 @@ function WaveBundler(ch1_data, sample_rate, sample_size )
 	else
 	{
 		throw "EXCEPTION: sample_size nto a number";
-	}
+	}*/
 	
-	
-	
-	this.returnWaveFile = function () {
-		var data = new Array(); //for returning
-		var temp = 0; //we shall use this later 
-		// i would refine this down to a simple hex array but,
-		//i would like make it easy for someone to learn the wave format
+
+	//audio must be an array, of x 8bit numbers
+	this.betterWAVEformat = function (NumSamples, NumChannels, BitsPerSample, audio) {
 		
-		//the RIFF HEADER
-		//0 - 4 | basic magic number :D | "RIFF"
-		data[0] = 'R';
-		data[1] = 'I';
-		data[2] = 'F';
-		data[3] = 'F';
+		var data =  [ 
+					0x52, 0x49, 0x46, 0x46,  /* RIFF in big endian  */
+					0xFF, 0xFF, 0xFF, 0xFF,  /* file size - 8 bytes */ 
+					0x57, 0x41, 0x56, 0x45,  /* WAVE in big endian */ 
+					
+					0x66, 0x6d, 0x74, 0x20,  /* 'fmt ' in big endian */
+					0x10, 0x00, 0x00, 0x00,  /* 16 for PCM */
+					0x01, 0x00,				 /* 1 for no compression*/
+					0x01, 0x00,				 /* No. of channels for now just 1 */
+					0xFF, 0xFF, 0xFF, 0xFF,  /* SampleRate e.g 8000,44100  */ 
+					0xFF, 0xFF, 0xFF, 0xFF,  /* byterate == SampleRate * NumChannels * BitsPerSample/8   */
+					0xFF, 0xFF,				 /* Block align == NumChannels * BitsPerSample/8*/
+					0xFF, 0xFF,				 /* Bits persmaple */
+					
+					0x64, 0x61, 0x74, 0x61,	 /* 'data' in big endian  */
+					0xFF, 0xFF, 0xFF, 0xFF  /* Subchunk2Size    == NumSamples * NumChannels * BitsPerSample/8 */
+					/*SOUND DATA*/
+					
+					];
 		
-		// 4 - 4 | Size of the file minus 8 bytes for these 2 field's | 0x00FF
+		//concat audio to the end
+		data = data.concat(audio);
+
 		
-		data[4] = 0;
-		data[5] = 0;
-		data[6] = 0;
-		data[7] = 0;
+		//change filesize
+		data[7] = (data.length-8) >> 24;
+		data[6] = ((data.length-8) >> 16) & (0x000000FF);
+		data[5] = ((data.length-8) >> 8) & (0x000000FF);
+		data[4] = ((data.length-8) & 0x000000FF);
 		
-		//the WAVE HEADER
-		//8 - 4 | a magic number :D :D  | "WAVE"
+		//change number of channels
+		data[22] = NumChannels & 0xFF;
+		data[23] = (NumChannels >> 8) & (0x000000FF);
 		
-		data[8]  = 'W';
-		data[9]  = 'A';
-		data[10] = 'V';
-		data[11] = 'E';
+		//change sample rate
+		data[27] = NumSamples >> 24;
+		data[26] = (NumSamples >> 16) & (0x000000FF);
+		data[25] = (NumSamples >> 8) & (0x000000FF);
+		data[24] = (NumSamples & 0x000000FF);
 		
-		//12 - 4 	| more magic  | "fmt " // thats a space got to be 4 bytes
+		//byte rate
+		var temp = Number((NumSamples * 1) * (BitsPerSample /8));
 		
-		data[12] = 'f';
-		data[13] = 'm';
-		data[14] = 't';
-		data[15] = ' ';
+		data[31] = temp >> 24;
+		data[30] = (temp >> 16) & (0x000000FF);
+		data[29] = (temp >> 8) & (0x000000FF);
+		data[28] = (temp & 0x000000FF);
 		
-		//16 - 4  | size of sub-chunk | apparently 16, bc i only want PCM // will have to look at other formats
+		//block align
+		temp = Number((1) * (BitsPerSample /8));
+		data[33] = (temp & 0x00001100);
+		data[32] = (temp & 0x000000FF);
 		
-		data[16] = 0x00;
-		data[17] = 0x00;
-		data[18] = 0x01;
-		data[19] = 0x00;
+		//bits per sample
+		data[35] = (BitsPerSample & 0x00001100);
+		data[34] = (BitsPerSample & 0x000000FF);
 		
-		//20 - 2  | AudioFormat 1=PCM other = compression | 0x01 //remember 2 bytes
+		// Subchunk2Size
+		temp = Number((NumSamples * 1) * (BitsPerSample /8));
 		
-		data[20] = 0x00;
-		data[21] = 0x01;
-		
-		//22 - 2  | channels				| 0x01 //remember 2 bytes
-		//only using single channel for this will modify later, im sure there is much better javascrpt wave libs out their
-		
-		data[22] = 0x00;
-		data[23] = 0x01;
-		
-		//24 - 4  | sample rate	| 8000, 44100, etc. //will have to research if custom numbers allowed, could be used to slow down the audio ???
-		
-		data[24] = this.sample_rate >> 24;
-		data[25] = (this.sample_rate >> 16) & (0x00000011);
-		data[26] = (this.sample_rate >> 8) & (0x00000011);
-		data[27] = (this.sample_rate & 0x00000011);
-		
-		//28 - 4	| byte-rate	SampleRate * NumChannels * BitsPerSample/8    | interseting, if i made a wave player i would do this calculation not read this feild
-		
-		temp = Number((this.sample_rate * 1) * (this.sample_size /8));
-		
-		data[28] = temp >> 24;
-		data[29] = (temp >> 16) & (0x00000011);
-		data[30] = (temp >> 8) & (0x00000011);
-		data[31] = (temp & 0x00000011);
-		
-		//32 - 2  | NumChannels * BitsPerSample/8 | //look into multiple channels
-		
-		temp = Number((1) * (this.sample_size /8));
-		data[32] = (temp & 0x00001100);
-		data[33] = (temp & 0x00000011);
-		
-		//34 - 2  | bits per sample | 0x08 //8 bit all the way?
-		
-		data[34] = (this.sample_size & 0x00001100);
-		data[35] = (this.sample_size & 0x00000011);
+		data[40] = temp >> 24;
+		data[41] = (temp >> 16) & (0x000000FF);
+		data[42] = (temp >> 8) & (0x000000FF);
+		data[43] = (temp & 0x000000FF);
 		
 		
-		//datasubchunck
-		
-		data[36] = 'd';
-		data[37] = 'a';
-		data[38] = 't';
-		data[39] = 'a';
-		
-		//40 - 4 | subchunck size | 0x00FF // so 2gb of data max?, or is it unsigned ?
-		//TODO:
-		data[40] = 0x00;
-		data[41] = 0x00;
-		data[42] = 0x00;
-		data[43] = 0x0F;
-		
-		
-		//TODO
 		
 		return data;
-		
+	}
+}
+
+//setup class
+window.onload = function () {
+	var classy = new WaveBundler();
+	
+	var data = [];
+	
+	for (var i = 0; i < 25600; i++)
+	{
+		data.push(Math.floor((Math.random()*255)+1));
 	}
 	
+	var str = classy.betterWAVEformat(4000,1,8,data);
 	
+
 	
-	
-	//this.returnHeaderBASE64()
-	
+	console.log("data:audio/wav;base64," + FastBase64.Encode(str));
+
+	var snd = new Audio("data:audio/wav;base64," + window.btoa(example));
+	snd.play();
 }
+
+
